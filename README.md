@@ -1,7 +1,10 @@
-dir2slideshow -t 0.2 collage
-dvd-slideshow -f collage.txt
+# Anicollage
+
+Script for making animated collages
 
 ```
-./segment.py
-mogrify -transparent black collage/*
+./anicollage.py image.png outdir
 ```
+
+dir2slideshow -t 0.2 collage
+dvd-slideshow -f collage.txt
