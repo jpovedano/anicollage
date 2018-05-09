@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import logging
 import imageio
 import random
 import numpy
@@ -9,8 +10,12 @@ from skimage.color import label2rgb
 
 
 def segment_image(input_file):
+    # Open original image
+    imgcolor = imageio.imread(input_file)
+    # Open the grayscale version
     img = imageio.imread(input_file, as_gray=True)
 
+    # Threshold
     mask = img > 10
     labeled, nlabels = measure.label(mask, return_num=True)
     labeled_color = label2rgb(labeled)
@@ -21,13 +26,16 @@ def segment_image(input_file):
     random.shuffle(labels)
 
     for i in range(1,nlabels):
+        logging.info("Processing frame {i}".format(i=i))
         threshf = lambda x: x in labels[0:i]
         vthres = numpy.vectorize(threshf)
         labeled_thres = vthres(labeled)
-        #labeled_color_thres = label2rgb(labeled_thres,)
-        #imshow(labeled_thres)
-        imsave('collage/collage_{n:03d}.png'.format(n=i),labeled_thres * 255)
-
+        masked = numpy.zeros(imgcolor.shape, dtype=numpy.uint8)
+        masked[:,:,0] = imgcolor[:,:,0] * labeled_thres
+        masked[:,:,1] = imgcolor[:,:,1] * labeled_thres
+        masked[:,:,2] = imgcolor[:,:,2] * labeled_thres
+        imsave('collage/collage_{n:03d}.png'.format(n=i), masked)
+    imshow(imgcolor)
     show()
 
 
