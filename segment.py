@@ -7,6 +7,16 @@ import numpy
 from skimage import measure
 from skimage.io import show, imshow, imsave, use_plugin
 from skimage.color import label2rgb
+import os
+
+def generate_slideshow(dir, outfile):
+    files = sorted(os.listdir(dir))
+    with open("{}".format(outfile),"w") as sf:
+        for i,f in enumerate(files):
+            sf.write("{}:{}".format(os.path.abspath(f),0.3))
+            if (i != len(files) - 1):
+                sf.write("crossfade:{}".format(0.3))
+
 
 
 def segment_image(input_file):
@@ -30,10 +40,20 @@ def segment_image(input_file):
         threshf = lambda x: x in labels[0:i]
         vthres = numpy.vectorize(threshf)
         labeled_thres = vthres(labeled)
-        masked = numpy.zeros(imgcolor.shape, dtype=numpy.uint8)
+
+        # Now we create a image with the alement masked
+
+        # tuples are not mutable, we need an additional channel for alpha
+        shape = list(imgcolor.shape)
+        shape[2] += 1
+        masked = numpy.zeros(tuple(shape), dtype=numpy.uint8)
+
+        # Apply the mask to the three components
         masked[:,:,0] = imgcolor[:,:,0] * labeled_thres
         masked[:,:,1] = imgcolor[:,:,1] * labeled_thres
         masked[:,:,2] = imgcolor[:,:,2] * labeled_thres
+        masked[:,:,3] = labeled_thres * 255
+
         imsave('collage/collage_{n:03d}.png'.format(n=i), masked)
     imshow(imgcolor)
     show()
@@ -43,3 +63,4 @@ if __name__ == '__main__':
     use_plugin('gtk')
     use_plugin('pil')
     segment_image('E-0410.JPG')
+    generate_slideshow('collage', 'collage/slideshow.txt')
