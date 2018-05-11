@@ -15,13 +15,21 @@ def generate_slideshow(dir, outfile):
     files = sorted(os.listdir(dir))
     with open("{}".format(outfile),"w") as sf:
         for i,f in enumerate(files):
-            sf.write("{}:{}".format(os.path.abspath(f),0.3))
+            sf.write("{}:{}\n".format(os.path.abspath(os.path.join(dir,f)),0.3))
             if (i != len(files) - 1):
-                sf.write("crossfade:{}".format(0.3))
+                sf.write("crossfade:{}\n".format(0.3))
 
 
+# Return a list o labels in certain order
+def sort_regions(regions):
+    center = numpy.subtract(regions[-1].centroid, regions[0].centroid)
+    def reg_dist_score(a, b):
+        return numpy.linalg.norm(numpy.subtract(b, a))
 
-def segment_image(input_file, output_dir, show_images=False):
+    return [r.label for r in sorted(regions,key=lambda x: reg_dist_score(x.centroid[1], center[0]))]
+
+
+def segment_image(input_file, output_dir, order_function=sort_regions, show_images=False):
     # Open original image
     imgcolor = imageio.imread(input_file)
     # Open the grayscale version
@@ -31,15 +39,20 @@ def segment_image(input_file, output_dir, show_images=False):
     mask = img > 10
     labeled, nlabels = measure.label(mask, return_num=True)
     labeled_color = label2rgb(labeled)
-    print nlabels
+    logging.info("Found regions: {nr}".format(nr=nlabels))
+
+    regionprop = measure.regionprops(labeled)
+    for r in regionprop:
+        print r.label, r.centroid
 
     if show_images:
         imshow(labeled_color)
         imshow(imgcolor)
         show()
 
-    labels = range(1,nlabels)
-    random.shuffle(labels)
+    #labels = range(1,nlabels)
+    #random.shuffle(labels)
+    labels = order_function(regionprop)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
