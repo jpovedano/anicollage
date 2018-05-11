@@ -28,12 +28,19 @@ def sort_regions(regions):
 
     return [r.label for r in sorted(regions,key=lambda x: reg_dist_score(x.centroid[1], center[0]))]
 
+def sort_colormap(regions, costmap):
 
-def segment_image(input_file, output_dir, order_function=sort_regions, show_images=False):
+    for r in regions:
+        print r.centroid, costmap[r.centroid]
+    return [r.label for r in sorted(regions, key=lambda x: costmap[x.centroid])]
+
+def segment_image(input_file, output_dir, order_function=None, colormap=None, show_images=False):
     # Open original image
     imgcolor = imageio.imread(input_file)
     # Open the grayscale version
     img = imageio.imread(input_file, as_gray=True)
+    if colormap:
+        costimg = imageio.imread(colormap, as_gray=True)
 
     # Threshold
     mask = img > 10
@@ -48,11 +55,16 @@ def segment_image(input_file, output_dir, order_function=sort_regions, show_imag
     if show_images:
         imshow(labeled_color)
         imshow(imgcolor)
+        imshow(costimg)
         show()
 
     #labels = range(1,nlabels)
     #random.shuffle(labels)
-    labels = order_function(regionprop)
+    if order_function:
+        labels = order_function(regionprop, costimg)
+    else:
+        labels = range(1,nlabels)
+        random.shuffle(labels)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -83,6 +95,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', help="Input image")
     parser.add_argument('outdir', help="Output directory")
+    parser.add_argument('--mask', help="Mask image")
+
     #TODO: Generate slideshow
 
     args = parser.parse_args()
@@ -90,7 +104,7 @@ def main():
     use_plugin('gtk')
     use_plugin('pil')
 
-    segment_image(args.input, args.outdir)
+    segment_image(args.input, args.outdir, sort_colormap, args.mask)
     generate_slideshow(args.outdir, '{d}/slideshow.txt'.format(d=args.outdir))
 
 if __name__ == '__main__':
