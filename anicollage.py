@@ -21,18 +21,29 @@ def generate_slideshow(dir, outfile):
 
 
 # Return a list o labels in certain order
-def sort_regions(regions):
+def sort_regions(regions, costmap=None):
     center = numpy.subtract(regions[-1].centroid, regions[0].centroid)
     def reg_dist_score(a, b):
         return numpy.linalg.norm(numpy.subtract(b, a))
 
     return [r.label for r in sorted(regions,key=lambda x: reg_dist_score(x.centroid[1], center[0]))]
 
-def sort_colormap(regions, costmap):
+# This function uses the centroid position to calculate the weigth.
+# This does not work correctly for excentric regions
+def sort_colormap_centroid(regions, costmap):
 
     for r in regions:
-        print r.centroid, costmap[r.centroid]
+        logging.debug(r.centroid, costmap[r.centroid])
+
     return [r.label for r in sorted(regions, key=lambda x: costmap[x.centroid])]
+
+def sort_colormap_average(regions, costmap):
+    rcol = []
+    for r in regions:
+        regavgcolor = numpy.mean(map(lambda x:costmap[x[0], x[1]], r.coords))
+        rcol.append({'label': r.label, 'averagecolor' : regavgcolor})
+
+    return [r['label'] for r in sorted(rcol, key=lambda r:r['averagecolor'])]
 
 def segment_image(input_file, output_dir, order_function=None, colormap=None, show_images=False):
     # Open original image
@@ -41,6 +52,8 @@ def segment_image(input_file, output_dir, order_function=None, colormap=None, sh
     img = imageio.imread(input_file, as_gray=True)
     if colormap:
         costimg = imageio.imread(colormap, as_gray=True)
+    else:
+        costimg = None
 
     # Threshold
     mask = img > 10
@@ -48,9 +61,9 @@ def segment_image(input_file, output_dir, order_function=None, colormap=None, sh
     labeled_color = label2rgb(labeled)
     logging.info("Found regions: {nr}".format(nr=nlabels))
 
-    regionprop = measure.regionprops(labeled)
+    regionprop = measure.regionprops(labeled, cache=True)
     for r in regionprop:
-        print r.label, r.centroid
+        logging.debug("Label: {} Centroid {}".format(r.label, r.centroid))
 
     if show_images:
         imshow(labeled_color)
@@ -87,8 +100,9 @@ def segment_image(input_file, output_dir, order_function=None, colormap=None, sh
         masked[:,:,1] = imgcolor[:,:,1] * labeled_thres
         masked[:,:,2] = imgcolor[:,:,2] * labeled_thres
         masked[:,:,3] = labeled_thres * 255
-
-        imsave('{d}/collage_{n:03d}.png'.format(d=output_dir, n=i), masked)
+        framename = '{d}/collage_{n:03d}.png'.format(d=output_dir, n=i)
+        logging.info("Processing image {}".format(framename))
+        imsave(framename, masked)
 
 
 def main():
@@ -104,8 +118,10 @@ def main():
     use_plugin('gtk')
     use_plugin('pil')
 
-    segment_image(args.input, args.outdir, sort_colormap, args.mask)
+    segment_image(args.input, args.outdir, sort_colormap_average, args.mask)
+    #segment_image(args.input, args.outdir, sort_regions, args.mask)
     generate_slideshow(args.outdir, '{d}/slideshow.txt'.format(d=args.outdir))
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     main()
